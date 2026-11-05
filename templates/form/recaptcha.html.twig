@@ -1,0 +1,61 @@
+{#
+    The token field of the reCAPTCHA v3 spam check. Google's script is loaded once per page, and a
+    fresh token is fetched right before a form is sent: a token is only valid for two minutes, and
+    a visitor can easily spend longer on a step. Pages stay cacheable: nothing here depends on the
+    visitor.
+
+    Without JavaScript no token is sent, and the check blocks the submission (it lands in the Spam
+    tab, where it can be released).
+#}
+{%- block eekes_form_builder_recaptcha_row -%}
+    {{- form_widget(form, {attr: {'data-eekes-recaptcha': site_key, 'data-eekes-recaptcha-action': recaptcha_action}}) -}}
+    <script>
+        (function () {
+            if (!window.eekesRecaptcha) {
+                window.eekesRecaptcha = true;
+
+                var script = document.createElement('script');
+                script.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent({{ site_key|json_encode|raw }});
+                script.async = true;
+                document.head.appendChild(script);
+
+                document.addEventListener('submit', function (event) {
+                    var form = event.target;
+                    var field = form.querySelector ? form.querySelector('[data-eekes-recaptcha]') : null;
+
+                    if (!field || typeof window.grecaptcha === 'undefined') {
+                        return;
+                    }
+
+                    if (form.getAttribute('data-eekes-recaptcha-done') === '1') {
+                        form.removeAttribute('data-eekes-recaptcha-done');
+
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    var submitter = event.submitter;
+
+                    var send = function (token) {
+                        field.value = token;
+                        form.setAttribute('data-eekes-recaptcha-done', '1');
+                        form.requestSubmit(submitter || undefined);
+                    };
+
+                    // Without a token the server blocks the submission, but it can still be
+                    // released from the Spam tab: better than a form that never sends.
+                    window.grecaptcha.ready(function () {
+                        try {
+                            window.grecaptcha.execute(field.getAttribute('data-eekes-recaptcha'), {action: field.getAttribute('data-eekes-recaptcha-action')}).then(send, function () {
+                                send('');
+                            });
+                        } catch (error) {
+                            send('');
+                        }
+                    });
+                }, true);
+            }
+        })();
+    </script>
+{%- endblock -%}

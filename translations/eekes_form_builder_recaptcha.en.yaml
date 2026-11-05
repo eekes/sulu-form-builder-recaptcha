@@ -1,0 +1,2 @@
+eekes_form_builder_recaptcha.expired: "The security check has expired. Please send the form again."
+eekes_form_builder_recaptcha.unavailable: "The security check is not available right now. Please try again in a moment."
